@@ -15,9 +15,14 @@ def load_data():
     return df
 
 
-def prepare_series(df):
+def prepare_series(df, blood_bank, blood_type):
 
-    series = df.groupby("Date")["RCC_Demand_Units"].sum()
+    filtered = df[
+        (df["Blood_Bank"] == blood_bank) &
+        (df["Blood_Type"] == blood_type)
+    ]
+
+    series = filtered.groupby("Date")["RCC_Demand_Units"].sum()
 
     return series
 
@@ -46,7 +51,10 @@ def main():
 
     df = load_data()
 
-    series = prepare_series(df)
+    blood_bank = "Accident Service"
+    blood_type = "O+"
+
+    series = prepare_series(df, blood_bank, blood_type)
 
     forecast = train_arima(series)
 
