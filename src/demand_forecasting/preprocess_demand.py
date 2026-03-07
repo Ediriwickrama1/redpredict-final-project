@@ -1,46 +1,68 @@
 import pandas as pd
+import os
 
-def load_data(file_path):
-    df = pd.read_csv(file_path)
+DATA_PATH = "data/nbts_demand.csv"
+OUTPUT_PATH = "data/processed_demand.csv"
+
+
+def load_data():
+
+    print("Loading dataset...")
+
+    df = pd.read_csv(DATA_PATH)
+
+    print("Dataset shape:", df.shape)
+
     return df
+
 
 def clean_data(df):
 
-    # convert date column
-    df['Date'] = pd.to_datetime(df['Date'])
+    print("Cleaning data...")
 
-    # sort by date
-    df = df.sort_values('Date')
+    df["Date"] = pd.to_datetime(df["Date"])
 
-    # remove duplicates
     df = df.drop_duplicates()
 
-    return df
-
-def create_features(df):
-
-    df['year'] = df['Date'].dt.year
-    df['month'] = df['Date'].dt.month
-    df['day'] = df['Date'].dt.day
-    df['day_of_week'] = df['Date'].dt.dayofweek
+    df = df.sort_values("Date")
 
     return df
 
-def preprocess_pipeline(file_path):
 
-    df = load_data(file_path)
+def create_time_features(df):
+
+    print("Creating time features...")
+
+    df["day_of_week"] = df["Date"].dt.dayofweek
+
+    df["week_of_year"] = df["Date"].dt.isocalendar().week
+
+    df["quarter"] = df["Date"].dt.quarter
+
+    return df
+
+
+def save_processed_data(df):
+
+    print("Saving processed dataset...")
+
+    df.to_csv(OUTPUT_PATH, index=False)
+
+    print("Saved to:", OUTPUT_PATH)
+
+
+def main():
+
+    df = load_data()
 
     df = clean_data(df)
 
-    df = create_features(df)
+    df = create_time_features(df)
 
-    return df
+    save_processed_data(df)
+
+    print(df.head())
 
 
 if __name__ == "__main__":
-
-    file_path = "data/nbts_demand.csv"
-
-    df = preprocess_pipeline(file_path)
-
-    print(df.head())
+    main()
