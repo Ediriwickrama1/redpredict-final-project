@@ -3,8 +3,13 @@ __pycache__/
 .venv/
 env/
 .ipynb_checkpoints/
-models/
-outputs/
+
+models/*
+!models/.gitkeep
+
+outputs/*
+!outputs/.gitkeep
+
 *.h5
 *.pkl
 *.joblib
