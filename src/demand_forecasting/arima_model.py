@@ -34,7 +34,7 @@ def train_arima(series):
     train = series[:train_size]
     test = series[train_size:]
 
-    model = ARIMA(train, order=(5,1,0))
+    model = ARIMA(train, order=(5, 1, 0))
 
     model_fit = model.fit()
 
@@ -44,7 +44,7 @@ def train_arima(series):
 
     print("ARIMA RMSE:", rmse)
 
-    return forecast
+    return forecast, rmse
 
 
 def main():
@@ -56,11 +56,10 @@ def main():
 
     series = prepare_series(df, blood_bank, blood_type)
 
-    forecast = train_arima(series)
+    forecast, rmse = train_arima(series)
 
     print("Forecast sample:")
     print(forecast.head())
-
 
 if __name__ == "__main__":
     main()

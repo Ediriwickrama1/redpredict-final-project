@@ -67,7 +67,7 @@ def train_lstm(series_df):
     rmse = math.sqrt(mean_squared_error(y_test_actual, predictions))
     print("LSTM RMSE:", rmse)
 
-    return model, predictions, y_test_actual
+    return model, predictions, y_test_actual, rmse
 
 
 def main():
@@ -82,7 +82,7 @@ def main():
         print("Not enough data for LSTM training.")
         return
 
-    model, predictions, actual = train_lstm(series_df)
+    model, predictions, actual, rmse = train_lstm(series_df)
 
     print("Prediction sample:")
     print(predictions[:5])
