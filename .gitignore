@@ -9,6 +9,8 @@ models/*
 !models/.gitkeep
 
 outputs/*
+!outputs/xai/
+!outputs/xai/*.png
 !outputs/.gitkeep
 
 *.h5

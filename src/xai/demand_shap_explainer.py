@@ -38,11 +38,9 @@ def prepare_features(df):
 
     categorical_cols = ["blood_bank", "blood_type"]
 
-    encoders = {}
     for col in categorical_cols:
         encoder = LabelEncoder()
         X[col] = encoder.fit_transform(X[col].astype(str))
-        encoders[col] = encoder
 
     return X, y
 
@@ -59,16 +57,24 @@ def train_explainer_model(X, y):
 
 
 def generate_global_shap(model, X_train):
+    sample_X = X_train.sample(n=min(1000, len(X_train)), random_state=42)
+
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(X_train)
+    shap_values = explainer.shap_values(sample_X)
 
     plt.figure()
-    shap.summary_plot(shap_values, X_train, show=False)
+    shap.summary_plot(shap_values, sample_X, show=False)
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, "demand_feature_importance.png"), bbox_inches="tight")
+    plt.savefig(os.path.join(OUTPUT_DIR, "demand_feature_importance.png"), dpi=300, bbox_inches="tight")
     plt.close()
 
-    return explainer, shap_values
+    plt.figure()
+    shap.summary_plot(shap_values, sample_X, plot_type="bar", show=False)
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, "demand_feature_importance_bar.png"), dpi=300, bbox_inches="tight")
+    plt.close()
+
+    return explainer, sample_X
 
 
 def generate_local_shap(explainer, X_test):
@@ -84,7 +90,7 @@ def generate_local_shap(explainer, X_test):
         show=False
     )
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, "demand_local_explanation.png"), bbox_inches="tight")
+    plt.savefig(os.path.join(OUTPUT_DIR, "demand_local_explanation.png"), dpi=300, bbox_inches="tight")
     plt.close()
 
     return one_row
@@ -101,13 +107,14 @@ def main():
     model, X_train, X_test = train_explainer_model(X, y)
 
     print("Generating global SHAP explanation...")
-    explainer, shap_values = generate_global_shap(model, X_train)
+    explainer, sample_X = generate_global_shap(model, X_train)
 
     print("Generating local SHAP explanation...")
     one_row = generate_local_shap(explainer, X_test)
 
     print("Saved:")
     print("-", os.path.join(OUTPUT_DIR, "demand_feature_importance.png"))
+    print("-", os.path.join(OUTPUT_DIR, "demand_feature_importance_bar.png"))
     print("-", os.path.join(OUTPUT_DIR, "demand_local_explanation.png"))
 
     print("\nExample demand row used for local explanation:")
