@@ -9,40 +9,36 @@ OUTPUT_PATH = "outputs/donor_predictions.csv"
 
 
 def load_data():
-    df = pd.read_csv(DATA_PATH)
-    return df
+    return pd.read_csv(DATA_PATH)
 
 
 def prepare_features(df):
     features = [
-        "Blood_Type",
-        "Hospital",
-        "Total_Donations",
-        "Days_Since_Last",
-        "Status",
-        "Age_Group",
-        "Gender",
-        "Frequent_Donor",
-        "Rare_Blood_Type"
+        "blood_type",
+        "hospital",
+        "total_donations",
+        "days_since_last",
+        "status",
+        "age_group",
+        "gender",
+        "frequent_donor",
+        "rare_blood_type"
     ]
 
     X = df[features].copy()
-    y = df["Will_Return"].copy()
+    y = df["will_return"].copy()
 
     categorical_cols = [
-        "Blood_Type",
-        "Hospital",
-        "Status",
-        "Age_Group",
-        "Gender"
+        "blood_type",
+        "hospital",
+        "status",
+        "age_group",
+        "gender"
     ]
-
-    encoders = {}
 
     for col in categorical_cols:
         encoder = LabelEncoder()
         X[col] = encoder.fit_transform(X[col])
-        encoders[col] = encoder
 
     return X, y, df
 
@@ -69,7 +65,7 @@ def generate_prediction_output(model, X, original_df):
     probabilities = model.predict_proba(X)[:, 1]
 
     output_df = original_df.copy()
-    output_df["Return_Probability"] = probabilities
+    output_df["return_probability"] = probabilities
 
     output_df.to_csv(OUTPUT_PATH, index=False)
     print("\nPrediction output saved to:", OUTPUT_PATH)
@@ -79,11 +75,21 @@ def generate_prediction_output(model, X, original_df):
 
 def main():
     df = load_data()
+    print("Loaded processed donors shape:", df.shape)
+
     X, y, original_df = prepare_features(df)
+    print("Feature matrix shape:", X.shape)
+    print("Target shape:", y.shape)
+
+    if len(X) == 0:
+        print("No data available for training. Check processed_donors.csv and preprocessing step.")
+        return
+
     model = train_model(X, y)
     prediction_df = generate_prediction_output(model, X, original_df)
+
     print("\nPrediction preview:")
-    print(prediction_df[["Donor_ID", "Blood_Type", "Return_Probability"]].head())
+    print(prediction_df[["donor_id", "blood_type", "return_probability"]].head())
 
 
 if __name__ == "__main__":
