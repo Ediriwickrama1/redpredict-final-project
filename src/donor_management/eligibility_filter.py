@@ -5,15 +5,14 @@ OUTPUT_PATH = "outputs/eligible_donors.csv"
 
 
 def load_data():
-    df = pd.read_csv(DATA_PATH)
-    return df
+    return pd.read_csv(DATA_PATH)
 
 
 def filter_eligible_donors(df):
     eligible_df = df[
-        (df["Eligible_By_Time"] == True) &
-        (df["Active_Status"] == True) &
-        (df["Has_Valid_Contact"] == True)
+        (df["eligible_by_time"] == True) &
+        (df["active_status"] == True) &
+        (df["has_valid_contact"] == True)
     ].copy()
 
     return eligible_df
