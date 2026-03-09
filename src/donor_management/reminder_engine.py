@@ -7,8 +7,15 @@ OUTPUT_PATH = "outputs/reminder_list.csv"
 
 def load_data():
     df = pd.read_csv(DATA_PATH)
-    df["Last_Donation_Date"] = pd.to_datetime(df["Last_Donation_Date"])
-    df["Reminder_Due_Date"] = pd.to_datetime(df["Reminder_Due_Date"])
+
+    # make all column names lowercase
+    df.columns = df.columns.str.lower()
+
+    df["last_donation_date"] = pd.to_datetime(df["last_donation_date"])
+    df["reminder_due_date"] = pd.to_datetime(df["reminder_due_date"])
+
+    print("Loaded columns:", list(df.columns))
+
     return df
 
 
@@ -16,16 +23,16 @@ def generate_reminder_list(df):
     today = pd.Timestamp(datetime.today().date())
 
     reminder_df = df[
-        (df["Reminder_Due_Date"] <= today) &
-        (df["Eligible_By_Time"] == True) &
-        (df["Active_Status"] == True) &
-        (df["Has_Valid_Contact"] == True)
+        (df["reminder_due_date"] <= today) &
+        (df["eligible_by_time"] == True) &
+        (df["active_status"] == True) &
+        (df["has_valid_contact"] == True)
     ].copy()
 
-    reminder_df["Days_Overdue"] = (today - reminder_df["Reminder_Due_Date"]).dt.days
+    reminder_df["days_overdue"] = (today - reminder_df["reminder_due_date"]).dt.days
 
     reminder_df = reminder_df.sort_values(
-        by=["Rare_Blood_Type", "Frequent_Donor", "Days_Overdue"],
+        by=["rare_blood_type", "frequent_donor", "days_overdue"],
         ascending=[False, False, False]
     )
 
@@ -42,10 +49,17 @@ def main():
     df = load_data()
     reminder_df = generate_reminder_list(df)
     save_output(reminder_df)
+
     print("\nReminder preview:")
     print(
         reminder_df[
-            ["Donor_ID", "Blood_Type", "Last_Donation_Date", "Reminder_Due_Date", "Days_Overdue"]
+            [
+                "donor_id",
+                "blood_type",
+                "last_donation_date",
+                "reminder_due_date",
+                "days_overdue",
+            ]
         ].head()
     )
 
