@@ -15,7 +15,8 @@ page = st.sidebar.radio(
         "Add Donor",
         "Demand Forecast",
         "Reminder Monitoring",
-        "Explainable AI"
+        "Explainable AI",
+        "Model Performance" 
     ]
 )
 
@@ -40,3 +41,6 @@ elif page == "Reminder Monitoring":
 
 elif page == "Explainable AI":
     exec(open("src/dashboard/xai_dashboard.py").read())
+    
+elif page == "Model Performance":
+    exec(open("src/dashboard/model_performance_dashboard.py").read())
