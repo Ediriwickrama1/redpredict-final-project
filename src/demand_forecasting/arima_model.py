@@ -1,7 +1,8 @@
 import pandas as pd
 from statsmodels.tsa.arima.model import ARIMA
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 import numpy as np
+
 
 DATA_PATH = "data/processed_demand.csv"
 
@@ -32,19 +33,32 @@ def train_arima(series):
     train_size = int(len(series) * 0.8)
 
     train = series[:train_size]
-    test = series[train_size:]
+    test  = series[train_size:]
 
-    model = ARIMA(train, order=(5, 1, 0))
-
+    model     = ARIMA(train, order=(5, 1, 0))
     model_fit = model.fit()
 
     forecast = model_fit.forecast(steps=len(test))
 
     rmse = np.sqrt(mean_squared_error(test, forecast))
+    mae  = mean_absolute_error(test, forecast)
+
+    # avoid divide-by-zero in MAPE
+    test_safe = test.replace(0, np.nan)
+    mape = (np.abs((test - forecast) / test_safe)).mean() * 100
 
     print("ARIMA RMSE:", rmse)
+    print("ARIMA MAE: ", mae)
+    print("ARIMA MAPE:", mape)
 
-    return forecast, rmse
+    metrics = {
+        "Model": "ARIMA",
+        "RMSE":  rmse,
+        "MAE":   mae,
+        "MAPE":  mape
+    }
+
+    return forecast, metrics
 
 
 def main():
@@ -56,10 +70,14 @@ def main():
 
     series = prepare_series(df, blood_bank, blood_type)
 
-    forecast, rmse = train_arima(series)
+    forecast, metrics = train_arima(series)
 
     print("Forecast sample:")
     print(forecast.head())
+
+    print("\nMetrics:")
+    print(metrics)
+
 
 if __name__ == "__main__":
     main()

@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from keras.models import Sequential
+from keras.layers import LSTM, Dense
 import math
 
 DATA_PATH = "data/processed_demand.csv"
@@ -50,7 +50,7 @@ def train_lstm(series_df):
     y_train, y_test = y[:split_index], y[split_index:]
 
     x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
-    x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
+    x_test  = x_test.reshape((x_test.shape[0],  x_test.shape[1],  1))
 
     model = Sequential()
     model.add(LSTM(50, activation="relu", input_shape=(seq_length, 1)))
@@ -61,13 +61,29 @@ def train_lstm(series_df):
 
     predictions = model.predict(x_test)
 
-    predictions = scaler.inverse_transform(predictions)
+    predictions   = scaler.inverse_transform(predictions)
     y_test_actual = scaler.inverse_transform(y_test.reshape(-1, 1))
 
+    # --- Metrics ---
     rmse = math.sqrt(mean_squared_error(y_test_actual, predictions))
-    print("LSTM RMSE:", rmse)
+    mae  = mean_absolute_error(y_test_actual, predictions)
 
-    return model, predictions, y_test_actual, rmse
+    # avoid divide-by-zero in MAPE
+    y_test_safe = np.where(y_test_actual == 0, np.nan, y_test_actual)
+    mape = np.nanmean(np.abs((y_test_actual - predictions) / y_test_safe)) * 100
+
+    print("LSTM RMSE:", rmse)
+    print("LSTM MAE: ", mae)
+    print("LSTM MAPE:", mape)
+
+    metrics = {
+        "Model": "LSTM",
+        "RMSE":  rmse,
+        "MAE":   mae,
+        "MAPE":  mape
+    }
+
+    return model, predictions, y_test_actual, metrics
 
 
 def main():
@@ -82,10 +98,13 @@ def main():
         print("Not enough data for LSTM training.")
         return
 
-    model, predictions, actual, rmse = train_lstm(series_df)
+    model, predictions, actual, metrics = train_lstm(series_df)
 
     print("Prediction sample:")
     print(predictions[:5])
+
+    print("\nMetrics:")
+    print(metrics)
 
 
 if __name__ == "__main__":

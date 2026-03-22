@@ -15,18 +15,45 @@ The current blood supply system suffers from:
 This system addresses both challenges using AI-based forecasting and donor intelligence.
 """)
 
+# --- Demand Forecasting Performance ---
 st.header("Demand Forecasting Performance")
 
-# You manually input your results here (from your experiments)
-lstm_rmse = 1.98
-arima_rmse = 6.73
+if os.path.exists("outputs/forecast_metrics.csv"):
+    forecast_df = pd.read_csv("outputs/forecast_metrics.csv")
 
-st.metric("LSTM RMSE (Better Model)", lstm_rmse)
-st.metric("ARIMA RMSE", arima_rmse)
+    lstm_row  = forecast_df[forecast_df["Model"] == "LSTM"].iloc[0]
+    arima_row = forecast_df[forecast_df["Model"] == "ARIMA"].iloc[0]
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("LSTM RMSE",  round(lstm_row["RMSE"], 3))
+    col2.metric("LSTM MAE",   round(lstm_row["MAE"],  3))
+    col3.metric("LSTM MAPE",  round(lstm_row["MAPE"], 3))
+
+    col1.metric("ARIMA RMSE", round(arima_row["RMSE"], 3))
+    col2.metric("ARIMA MAE",  round(arima_row["MAE"],  3))
+    col3.metric("ARIMA MAPE", round(arima_row["MAPE"], 3))
+
+else:
+    # fallback to hardcoded values if forecast_metrics.csv not yet generated
+    st.metric("LSTM RMSE (Better Model)", 1.98)
+    st.metric("ARIMA RMSE", 6.73)
 
 st.success("LSTM significantly improves forecasting accuracy compared to ARIMA.")
 
-# --- Donor Model Evaluation Metrics (clean column layout) ---
+# --- Forecasting Model Evaluation Metrics ---
+st.header("Forecasting Model Evaluation Metrics")
+
+if os.path.exists("outputs/forecast_metrics.csv"):
+    forecast_df = pd.read_csv("outputs/forecast_metrics.csv")
+    st.dataframe(forecast_df)
+
+    st.subheader("RMSE, MAE, and MAPE Comparison")
+    st.bar_chart(forecast_df.set_index("Model")[["RMSE", "MAE", "MAPE"]])
+
+else:
+    st.warning("Run model_selector.py to generate forecast metrics.")
+
+# --- Donor Model Evaluation Metrics ---
 st.header("Donor Model Evaluation Metrics")
 
 if os.path.exists("outputs/donor_metrics.csv"):
