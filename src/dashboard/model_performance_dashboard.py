@@ -28,16 +28,14 @@ st.success("LSTM significantly improves forecasting accuracy compared to ARIMA."
 
 st.header("Donor Prediction Performance")
 
-# Replace with your real values if available
-auc_score = 0.95
+if os.path.exists("outputs/donor_metrics.csv"):
+    metrics_df = pd.read_csv("outputs/donor_metrics.csv")
 
-st.metric("AUC Score", auc_score)
+    for _, row in metrics_df.iterrows():
+        st.metric(row["Metric"], round(row["Value"], 3))
 
-st.write("""
-The donor classification model shows strong ability to distinguish:
-- Returning donors
-- Non-returning donors
-""")
+else:
+    st.warning("Run donor_model.py to generate metrics.")
 
 st.header("Confusion Matrix")
 
@@ -61,6 +59,20 @@ if os.path.exists("outputs/xai/demand_feature_importance.png"):
     st.image("outputs/xai/demand_feature_importance.png", caption="Demand Feature Importance")
 
 st.header("System Impact")
+
+st.header("System Improvement (Before vs After)")
+
+if os.path.exists("outputs/system_comparison.csv"):
+    df = pd.read_csv("outputs/system_comparison.csv")
+
+    st.dataframe(df)
+
+    st.bar_chart(df.set_index("Scenario"))
+
+    st.success("The AI system significantly reduces forecasting error and improves decision-making.")
+
+else:
+    st.warning("Run system_comparison.py first.")
 
 st.success("""
 This system transforms a reactive process into a proactive decision support system:
