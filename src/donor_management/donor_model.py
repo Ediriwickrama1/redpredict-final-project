@@ -13,6 +13,7 @@ from sklearn.metrics import (
     classification_report
 )
 import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve
 
 
 DATA_PATH = "data/processed_donors.csv"
@@ -88,6 +89,20 @@ def train_model(X, y):
     })
     metrics_df.to_csv("outputs/donor_metrics.csv", index=False)
     print("Metrics saved to: outputs/donor_metrics.csv")
+
+    # --- Save ROC curve ---
+    fpr, tpr, _ = roc_curve(y_test, y_prob)
+
+    plt.figure()
+    plt.plot(fpr, tpr, label=f"AUC = {auc:.2f}")
+    plt.plot([0, 1], [0, 1], linestyle="--")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("ROC Curve - Donor Prediction")
+    plt.legend()
+    plt.savefig("outputs/roc_curve.png")
+    plt.close()
+    print("ROC curve saved to: outputs/roc_curve.png")
 
     # --- Save confusion matrix ---
     cm = confusion_matrix(y_test, y_pred)
