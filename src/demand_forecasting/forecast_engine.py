@@ -7,17 +7,16 @@ sys.path.append(os.path.dirname(__file__))
 from arima_model import load_data, prepare_series, train_arima
 from lstm_model import prepare_series as prepare_lstm_series, train_lstm
 
-
 OUTPUT_FOLDER = "outputs"
 
 
-def select_best_model(arima_rmse, lstm_rmse):
-    if lstm_rmse < arima_rmse:
+def select_best_model(arima_metrics, lstm_metrics):
+    if lstm_metrics["RMSE"] < arima_metrics["RMSE"]:
         return "LSTM"
     return "ARIMA"
 
 
-def save_forecast(blood_bank, blood_type, forecast_values, model_used):
+def save_forecast(blood_bank, blood_type, forecast_values, model_used, conf_int=None):
     safe_bank = blood_bank.replace("/", "-").replace(" ", "_")
     safe_type = blood_type.replace("+", "pos").replace("-", "neg")
 
@@ -30,6 +29,14 @@ def save_forecast(blood_bank, blood_type, forecast_values, model_used):
     forecast_df = pd.DataFrame({
         "Forecast_Units": forecast_values
     })
+
+    if conf_int is not None and len(conf_int) == len(forecast_df):
+        forecast_df["Lower_Bound"] = conf_int.iloc[:, 0].values
+        forecast_df["Upper_Bound"] = conf_int.iloc[:, 1].values
+    else:
+        forecast_df["Lower_Bound"] = None
+        forecast_df["Upper_Bound"] = None
+
     forecast_df["Model_Used"] = model_used
     forecast_df["Blood_Bank"] = blood_bank
     forecast_df["Blood_Type"] = blood_type
@@ -48,7 +55,7 @@ def generate_forecast(blood_bank, blood_type):
         print("Not enough data for forecasting with this blood bank and blood type.")
         return
 
-    arima_forecast, arima_rmse = train_arima(arima_series)
+    arima_forecast, arima_conf_int, arima_metrics = train_arima(arima_series)
 
     # LSTM
     lstm_series_df = prepare_lstm_series(df, blood_bank, blood_type)
@@ -57,26 +64,29 @@ def generate_forecast(blood_bank, blood_type):
         print("Not enough data for LSTM. Using ARIMA.")
         best_model = "ARIMA"
         best_forecast = arima_forecast
-        lstm_rmse = None
+        best_conf_int = arima_conf_int
+        lstm_metrics = {"RMSE": None, "MAE": None, "MAPE": None}
     else:
-        _, lstm_predictions, _, lstm_rmse = train_lstm(lstm_series_df)
+        _, lstm_predictions, _, lstm_metrics = train_lstm(lstm_series_df)
 
-        best_model = select_best_model(arima_rmse, lstm_rmse)
+        best_model = select_best_model(arima_metrics, lstm_metrics)
 
         if best_model == "LSTM":
             best_forecast = lstm_predictions
+            best_conf_int = None
         else:
             best_forecast = arima_forecast
+            best_conf_int = arima_conf_int
 
     print("\nModel Comparison")
     print("----------------")
     print("Blood Bank:", blood_bank)
     print("Blood Type:", blood_type)
-    print("ARIMA RMSE:", arima_rmse)
-    print("LSTM RMSE:", lstm_rmse)
+    print("ARIMA Metrics:", arima_metrics)
+    print("LSTM Metrics:", lstm_metrics)
     print("Best Model:", best_model)
 
-    save_forecast(blood_bank, blood_type, best_forecast, best_model)
+    save_forecast(blood_bank, blood_type, best_forecast, best_model, best_conf_int)
 
 
 def main():
