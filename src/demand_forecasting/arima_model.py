@@ -38,7 +38,9 @@ def train_arima(series):
     model     = ARIMA(train, order=(5, 1, 0))
     model_fit = model.fit()
 
-    forecast = model_fit.forecast(steps=len(test))
+    forecast_result = model_fit.get_forecast(steps=len(test))
+    forecast = forecast_result.predicted_mean
+    conf_int = forecast_result.conf_int()
 
     rmse = np.sqrt(mean_squared_error(test, forecast))
     mae  = mean_absolute_error(test, forecast)
@@ -58,7 +60,7 @@ def train_arima(series):
         "MAPE":  mape
     }
 
-    return forecast, metrics
+    return forecast, conf_int, metrics
 
 
 def main():
@@ -70,10 +72,13 @@ def main():
 
     series = prepare_series(df, blood_bank, blood_type)
 
-    forecast, metrics = train_arima(series)
+    forecast, conf_int, metrics = train_arima(series)
 
     print("Forecast sample:")
     print(forecast.head())
+
+    print("\nConfidence Intervals sample:")
+    print(conf_int.head())
 
     print("\nMetrics:")
     print(metrics)

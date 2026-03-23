@@ -16,28 +16,33 @@ def select_best_model(arima_metrics, lstm_metrics):
     return "ARIMA"
 
 
-def save_metrics(arima_metrics, lstm_metrics, blood_bank, blood_type, best_model):
-    df = pd.DataFrame([
+def save_metrics(arima_metrics, lstm_metrics, blood_bank, blood_type, best_model, arima_conf_int=None):
+    rows = [
         {
-            "Blood_Bank": blood_bank,
-            "Blood_Type": blood_type,
-            "Model":      arima_metrics["Model"],
-            "RMSE":       arima_metrics["RMSE"],
-            "MAE":        arima_metrics["MAE"],
-            "MAPE":       arima_metrics["MAPE"],
-            "Best_Model": best_model
+            "Blood_Bank":       blood_bank,
+            "Blood_Type":       blood_type,
+            "Model":            arima_metrics["Model"],
+            "RMSE":             arima_metrics["RMSE"],
+            "MAE":              arima_metrics["MAE"],
+            "MAPE":             arima_metrics["MAPE"],
+            "CI_Lower_First":   arima_conf_int.iloc[0, 0] if arima_conf_int is not None else None,
+            "CI_Upper_First":   arima_conf_int.iloc[0, 1] if arima_conf_int is not None else None,
+            "Best_Model":       best_model
         },
         {
-            "Blood_Bank": blood_bank,
-            "Blood_Type": blood_type,
-            "Model":      lstm_metrics["Model"],
-            "RMSE":       lstm_metrics["RMSE"],
-            "MAE":        lstm_metrics["MAE"],
-            "MAPE":       lstm_metrics["MAPE"],
-            "Best_Model": best_model
+            "Blood_Bank":       blood_bank,
+            "Blood_Type":       blood_type,
+            "Model":            lstm_metrics["Model"],
+            "RMSE":             lstm_metrics["RMSE"],
+            "MAE":              lstm_metrics["MAE"],
+            "MAPE":             lstm_metrics["MAPE"],
+            "CI_Lower_First":   None,
+            "CI_Upper_First":   None,
+            "Best_Model":       best_model
         }
-    ])
+    ]
 
+    df = pd.DataFrame(rows)
     df.to_csv(OUTPUT_PATH, index=False)
     print("\nForecast metrics saved to:", OUTPUT_PATH)
 
@@ -47,12 +52,12 @@ def main():
     blood_type = "O+"
 
     # ARIMA
-    df_arima    = load_arima_data()
+    df_arima     = load_arima_data()
     arima_series = prepare_arima_series(df_arima, blood_bank, blood_type)
-    _, arima_metrics = train_arima(arima_series)
+    _, arima_conf_int, arima_metrics = train_arima(arima_series)
 
     # LSTM
-    df_lstm       = load_lstm_data()
+    df_lstm        = load_lstm_data()
     lstm_series_df = prepare_lstm_series(df_lstm, blood_bank, blood_type)
 
     if len(lstm_series_df) < 20:
@@ -63,7 +68,8 @@ def main():
             {"Model": "LSTM", "RMSE": None, "MAE": None, "MAPE": None},
             blood_bank,
             blood_type,
-            best_model
+            best_model,
+            arima_conf_int=arima_conf_int
         )
         return
 
@@ -79,7 +85,7 @@ def main():
     print("LSTM Metrics:  ", lstm_metrics)
     print("Best Model:    ", best_model)
 
-    save_metrics(arima_metrics, lstm_metrics, blood_bank, blood_type, best_model)
+    save_metrics(arima_metrics, lstm_metrics, blood_bank, blood_type, best_model, arima_conf_int=arima_conf_int)
 
 
 if __name__ == "__main__":
