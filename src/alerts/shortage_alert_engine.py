@@ -22,9 +22,16 @@ def collect_forecast_files():
 
 def detect_shortages(threshold=10):
     alerts = []
+
     donor_df = load_priority_donors()
 
-    for file_path in collect_forecast_files():
+    forecast_files = collect_forecast_files()
+
+    if len(forecast_files) == 0:
+        print("No forecast files found.")
+        return
+
+    for file_path in forecast_files:
         df = pd.read_csv(file_path)
 
         if "Forecast_Units" not in df.columns:
@@ -37,8 +44,10 @@ def detect_shortages(threshold=10):
 
         if avg_forecast >= threshold:
             matched_donors = 0
+
             if not donor_df.empty and "blood_type" in donor_df.columns:
-                matched_donors = len(donor_df[donor_df["blood_type"] == blood_type])
+                matched = donor_df[donor_df["blood_type"] == blood_type]
+                matched_donors = len(matched)
 
             alerts.append({
                 "Blood_Bank": blood_bank,
@@ -49,8 +58,11 @@ def detect_shortages(threshold=10):
             })
 
     alert_df = pd.DataFrame(alerts)
+
     alert_df.to_csv(OUTPUT_PATH, index=False)
-    print("Shortage alerts saved to:", OUTPUT_PATH)
+
+    print("\nShortage alerts saved to:", OUTPUT_PATH)
+    print("Total alerts:", len(alert_df))
 
 
 if __name__ == "__main__":

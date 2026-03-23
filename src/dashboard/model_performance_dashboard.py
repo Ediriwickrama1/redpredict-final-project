@@ -148,3 +148,15 @@ st.header("Run Model Evaluation")
 if st.button("Recalculate Model Metrics"):
     os.system("python src/donor_management/donor_model.py")
     st.success("Model re-evaluated successfully.")
+    
+st.header("Shortage Alerts")
+
+if os.path.exists("outputs/shortage_alerts.csv"):
+    alerts_df = pd.read_csv("outputs/shortage_alerts.csv")
+
+    st.dataframe(alerts_df)
+
+    st.warning("These alerts indicate potential blood shortages requiring immediate attention.")
+
+else:
+    st.info("Run shortage_alert_engine.py to generate alerts.")
