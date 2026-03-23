@@ -17,14 +17,27 @@ if os.path.exists(SETTINGS_PATH):
 else:
     settings = default_settings
 
-interval = st.slider("Reminder Interval (months)", 3, 6, settings["reminder_interval_months"])
-min_days = st.slider("Minimum Days Since Last Donation", 90, 180, settings["minimum_days_since_last"])
+st.write("Customize reminder behavior for donor notifications.")
+
+interval = st.slider(
+    "Reminder Interval (months)",
+    3, 6,
+    settings.get("reminder_interval_months", 4)
+)
+
+min_days = st.slider(
+    "Minimum Days Since Last Donation",
+    90, 180,
+    settings.get("minimum_days_since_last", 120)
+)
 
 if st.button("Save Settings"):
-    settings = {
+    new_settings = {
         "reminder_interval_months": interval,
         "minimum_days_since_last": min_days
     }
+
     with open(SETTINGS_PATH, "w") as f:
-        json.dump(settings, f, indent=2)
-    st.success("Reminder settings saved.")
+        json.dump(new_settings, f, indent=2)
+
+    st.success("Reminder settings saved successfully.")

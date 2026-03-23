@@ -1,5 +1,7 @@
 import pandas as pd
 from datetime import datetime
+import json
+import os
 
 DATA_PATH = "data/processed_donors.csv"
 OUTPUT_PATH = "outputs/reminder_list.csv"
@@ -16,14 +18,34 @@ def load_data():
     return df
 
 
+def load_settings():
+    path = "outputs/reminder_settings.json"
+
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+
+    return {
+        "reminder_interval_months": 4,
+        "minimum_days_since_last": 120
+    }
+
+
 def generate_reminder_list(df):
+    settings = load_settings()
+    interval_months = settings["reminder_interval_months"]
+    min_days = settings["minimum_days_since_last"]
+
     today = pd.Timestamp(datetime.today().date())
+
+    df["reminder_due_date"] = df["last_donation_date"] + pd.DateOffset(months=interval_months)
 
     reminder_df = df[
         (df["reminder_due_date"] <= today) &
         (df["eligible_by_time"] == True) &
         (df["active_status"] == True) &
-        (df["has_valid_contact"] == True)
+        (df["has_valid_contact"] == True) &
+        (df["days_since_last"] >= min_days)
     ].copy()
 
     reminder_df["days_overdue"] = (today - reminder_df["reminder_due_date"]).dt.days

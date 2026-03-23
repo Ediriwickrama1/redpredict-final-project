@@ -1,0 +1,4 @@
+{
+  "reminder_interval_months": 4,
+  "minimum_days_since_last": 120
+}

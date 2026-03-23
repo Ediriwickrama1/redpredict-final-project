@@ -16,6 +16,7 @@ page = st.sidebar.radio(
         "Demand Forecast",
         "Reminder Monitoring",
         "Explainable AI",
+        "Reminder Settings",
         "Model Performance" 
     ]
 )
@@ -44,3 +45,6 @@ elif page == "Explainable AI":
     
 elif page == "Model Performance":
     exec(open("src/dashboard/model_performance_dashboard.py").read())
+    
+elif page == "Reminder Settings":
+    exec(open("src/dashboard/reminder_settings_dashboard.py").read())
