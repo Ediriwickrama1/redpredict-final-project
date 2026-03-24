@@ -3,9 +3,11 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from arima_model import load_data, prepare_series, train_arima
 from lstm_model import prepare_series as prepare_lstm_series, train_lstm
+from utils.performance_logger import log_runtime
 
 OUTPUT_FOLDER = "outputs"
 
@@ -45,6 +47,7 @@ def save_forecast(blood_bank, blood_type, forecast_values, model_used, conf_int=
     print(f"\nForecast saved to: {file_path}")
 
 
+@log_runtime("Demand Forecast Generation")
 def generate_forecast(blood_bank, blood_type):
     df = load_data()
 

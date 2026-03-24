@@ -6,6 +6,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from donor_management.communication_logger import log_communication
+from utils.performance_logger import log_runtime
 
 DATA_PATH = "data/processed_donors.csv"
 OUTPUT_PATH = "outputs/reminder_list.csv"
@@ -88,6 +89,7 @@ def log_reminder_communications(reminder_df):
         )
 
 
+@log_runtime("Reminder Generation")
 def main():
     df = load_data()
     reminder_df = generate_reminder_list(df)

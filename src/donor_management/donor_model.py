@@ -1,4 +1,6 @@
 import pandas as pd
+import sys
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.linear_model import LogisticRegression
@@ -15,6 +17,8 @@ from sklearn.metrics import (
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve
 
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from utils.performance_logger import log_runtime
 
 DATA_PATH = "data/processed_donors.csv"
 OUTPUT_PATH = "outputs/donor_predictions.csv"
@@ -112,6 +116,16 @@ def train_model(X, y):
     plt.close()
     print("Confusion matrix saved to: outputs/confusion_matrix.png")
 
+    importance = model.coef_[0]
+    feature_names = X.columns
+
+    importance_df = pd.DataFrame({
+        "Feature": feature_names,
+        "Importance": importance
+    }).sort_values(by="Importance", ascending=False)
+
+    importance_df.to_csv("outputs/feature_importance.csv", index=False)
+
     return model
 
 
@@ -127,6 +141,7 @@ def generate_prediction_output(model, X, original_df):
     return output_df
 
 
+@log_runtime("Donor Model Training and Evaluation")
 def main():
     df = load_data()
     print("Loaded processed donors shape:", df.shape)

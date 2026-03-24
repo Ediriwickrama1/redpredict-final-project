@@ -5,6 +5,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from database.mysql_connection import get_connection
+from utils.performance_logger import log_runtime
 
 OUTPUT_PATH = "data/processed_donors.csv"
 
@@ -31,7 +32,6 @@ def clean_data(df):
 
     print("Columns after cleaning names:", list(df.columns))
 
-    # Convert columns carefully
     df["last_donation_date"] = pd.to_datetime(df["last_donation_date"], errors="coerce")
     df["total_donations"] = pd.to_numeric(df["total_donations"], errors="coerce")
     df["days_since_last"] = pd.to_numeric(df["days_since_last"], errors="coerce")
@@ -54,7 +54,6 @@ def clean_data(df):
     print("\nMissing values before dropping:")
     print(df.isna().sum())
 
-    # Only drop rows missing truly critical model fields
     df = df.dropna(subset=[
         "donor_id",
         "blood_type",
@@ -91,6 +90,7 @@ def save_processed_data(df):
     print("Saved to:", OUTPUT_PATH)
 
 
+@log_runtime("Donor Preprocessing")
 def main():
     df = load_data()
     print("After loading:", df.shape)
