@@ -17,6 +17,7 @@ page = st.sidebar.radio(
         "Reminder Monitoring",
         "Explainable AI",
         "Reminder Settings",
+        "Communication Log",
         "Model Performance" 
     ]
 )
@@ -48,3 +49,6 @@ elif page == "Model Performance":
     
 elif page == "Reminder Settings":
     exec(open("src/dashboard/reminder_settings_dashboard.py").read())
+    
+elif page == "Communication Log":
+    exec(open("src/dashboard/communication_log_dashboard.py").read())

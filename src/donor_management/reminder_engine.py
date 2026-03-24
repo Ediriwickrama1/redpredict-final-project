@@ -2,6 +2,10 @@ import pandas as pd
 from datetime import datetime
 import json
 import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from donor_management.communication_logger import log_communication
 
 DATA_PATH = "data/processed_donors.csv"
 OUTPUT_PATH = "outputs/reminder_list.csv"
@@ -74,26 +78,31 @@ def save_output(df):
     print("Reminder donor count:", len(df))
 
 
+def log_reminder_communications(reminder_df):
+    for _, row in reminder_df.iterrows():
+        log_communication(
+            donor_id=row["donor_id"],
+            communication_type="Reminder",
+            communication_status="Pending",
+            notes=f"Reminder due for blood type {row['blood_type']}"
+        )
+
+
 def main():
     df = load_data()
     reminder_df = generate_reminder_list(df)
     save_output(reminder_df)
+    log_reminder_communications(reminder_df)
 
     print("\nReminder preview:")
     print(
         reminder_df[
             [
                 "donor_id",
-                "name",
                 "blood_type",
-                "hospital",
                 "last_donation_date",
                 "reminder_due_date",
-                "days_since_last",
                 "days_overdue",
-                "rare_blood_type",
-                "frequent_donor",
-                "reminder_priority_score"
             ]
         ].head()
     )
