@@ -13,6 +13,18 @@ outputs/*
 !outputs/xai/*.png
 !outputs/.gitkeep
 
+!outputs/donor_metrics.csv
+!outputs/confusion_matrix.png
+!outputs/roc_curve.png
+!outputs/feature_importance.csv
+!outputs/forecast_metrics.csv
+!outputs/system_comparison.csv
+!outputs/shortage_alerts.csv
+!outputs/reminder_list.csv
+!outputs/xai/
+!outputs/xai/*.png
+!outputs/reminder_settings.json
+
 *.h5
 *.pkl
 *.joblib

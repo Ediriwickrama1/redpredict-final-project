@@ -1,3 +1,0 @@
-Scenario,RMSE
-Before System (ARIMA / Manual),6.73
-After System (LSTM + AI),1.98
