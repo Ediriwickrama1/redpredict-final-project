@@ -14,8 +14,10 @@ os.system("python src/xai/donor_shap_explainer.py")
 print("4. Generating demand SHAP explanations...")
 os.system("python src/xai/demand_shap_explainer.py")
 
-print("Done. Now launch the dashboard with:")
-print("streamlit run src/dashboard/app.py")
-
 print("5. Generating shortage alerts...")
 os.system("python src/alerts/shortage_alert_engine.py")
+
+print("6. Performance logs updated automatically during execution.")
+
+print("\nDone. Now launch the dashboard with:")
+print("streamlit run src/dashboard/app.py")
