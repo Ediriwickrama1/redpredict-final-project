@@ -69,6 +69,9 @@ elif page == "Model Performance":
 
 elif page == "Explainable AI":
     exec(open("src/dashboard/xai_dashboard.py").read())
+    
+elif page == "User Management":
+    exec(open("src/dashboard/user_management_dashboard.py").read())
 
 elif page == "Performance":
     exec(open("src/dashboard/performance_dashboard.py").read())

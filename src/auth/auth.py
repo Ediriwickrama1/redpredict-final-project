@@ -1,19 +1,10 @@
 import streamlit as st
+import sys
+import os
 
-USERS = {
-    "manager1": {
-        "password": "manager123",
-        "role": "Blood Bank Manager"
-    },
-    "coordinator1": {
-        "password": "coord123",
-        "role": "Donor Coordinator"
-    },
-    "hospital1": {
-        "password": "hospital123",
-        "role": "Hospital Staff"
-    }
-}
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from database.mysql_connection import get_connection
+
 
 ROLE_PAGES = {
     "Blood Bank Manager": [
@@ -25,6 +16,7 @@ ROLE_PAGES = {
         "Communication Log",
         "Model Performance",
         "Explainable AI",
+        "User Management",
         "Performance"
     ],
     "Donor Coordinator": [
@@ -44,8 +36,23 @@ ROLE_PAGES = {
 
 
 def login_user(username, password):
-    if username in USERS and USERS[username]["password"] == password:
-        return True, USERS[username]["role"]
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT username, password, role
+        FROM system_users
+        WHERE username = %s
+    """, (username,))
+
+    user = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if user and user["password"] == password:
+        return True, user["role"]
+
     return False, None
 
 
