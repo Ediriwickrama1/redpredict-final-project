@@ -1,8 +1,13 @@
 import os
 import sys
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+
+try:
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -119,54 +124,57 @@ if run_btn:
             history_df = selected_df.tail(30)[["date", "rcc_demand_units"]].copy()
             history_df.columns = ["Date", "Actual_Demand"]
 
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=history_df["Date"],
-                y=history_df["Actual_Demand"],
-                mode="lines+markers",
-                name="Historical Demand"
-            ))
+            if PLOTLY_AVAILABLE:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=history_df["Date"],
+                    y=history_df["Actual_Demand"],
+                    mode="lines+markers",
+                    name="Historical Demand"
+                ))
 
-            # Forecast x-axis continues from the last historical date
-            if len(history_df) > 0:
-                last_date = history_df["Date"].iloc[-1]
-                future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=len(forecast_df), freq="D")
+                # Forecast x-axis continues from the last historical date
+                if len(history_df) > 0:
+                    last_date = history_df["Date"].iloc[-1]
+                    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=len(forecast_df), freq="D")
+                else:
+                    future_dates = list(range(len(forecast_df)))
+
+                fig.add_trace(go.Scatter(
+                    x=future_dates,
+                    y=forecast_df["Forecast_Units"],
+                    mode="lines+markers",
+                    name="Forecast",
+                    line=dict(dash="dot")
+                ))
+
+                if "Lower_Bound" in forecast_df.columns and "Upper_Bound" in forecast_df.columns:
+                    if forecast_df["Lower_Bound"].notna().any() and forecast_df["Upper_Bound"].notna().any():
+                        fig.add_trace(go.Scatter(
+                            x=future_dates,
+                            y=forecast_df["Upper_Bound"],
+                            mode="lines",
+                            line=dict(width=0),
+                            showlegend=False
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=future_dates,
+                            y=forecast_df["Lower_Bound"],
+                            mode="lines",
+                            line=dict(width=0),
+                            fill="tonexty",
+                            name="Confidence Interval"
+                        ))
+
+                fig.update_layout(
+                    title="Historical Demand and Forecast",
+                    xaxis_title="Date",
+                    yaxis_title="Blood Units",
+                    height=450
+                )
+                st.plotly_chart(fig, use_container_width=True)
             else:
-                future_dates = list(range(len(forecast_df)))
-
-            fig.add_trace(go.Scatter(
-                x=future_dates,
-                y=forecast_df["Forecast_Units"],
-                mode="lines+markers",
-                name="Forecast",
-                line=dict(dash="dot")
-            ))
-
-            if "Lower_Bound" in forecast_df.columns and "Upper_Bound" in forecast_df.columns:
-                if forecast_df["Lower_Bound"].notna().any() and forecast_df["Upper_Bound"].notna().any():
-                    fig.add_trace(go.Scatter(
-                        x=future_dates,
-                        y=forecast_df["Upper_Bound"],
-                        mode="lines",
-                        line=dict(width=0),
-                        showlegend=False
-                    ))
-                    fig.add_trace(go.Scatter(
-                        x=future_dates,
-                        y=forecast_df["Lower_Bound"],
-                        mode="lines",
-                        line=dict(width=0),
-                        fill="tonexty",
-                        name="Confidence Interval"
-                    ))
-
-            fig.update_layout(
-                title="Historical Demand and Forecast",
-                xaxis_title="Date",
-                yaxis_title="Blood Units",
-                height=450
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                st.line_chart(history_df.set_index("Date")["Actual_Demand"])
 
             st.subheader("Forecast Output Table")
             st.dataframe(forecast_df, use_container_width=True)
@@ -179,11 +187,20 @@ if run_btn:
 
             try:
                 best_row = metrics_df[metrics_df["Model"] == best_model].iloc[0]
+
+                def safe_metric(value, decimals=3, suffix=""):
+                    if value is None or pd.isna(value):
+                        return "N/A"
+                    try:
+                        return f"{round(float(value), decimals)}{suffix}"
+                    except Exception:
+                        return "N/A"
+
                 v1, v2, v3, v4 = st.columns(4)
-                v1.metric("RMSE", round(float(best_row["RMSE"]), 3) if pd.notna(best_row["RMSE"]) else "N/A")
-                v2.metric("MAE", round(float(best_row["MAE"]), 3) if pd.notna(best_row["MAE"]) else "N/A")
-                v3.metric("MAPE", round(float(best_row["MAPE"]), 3) if pd.notna(best_row["MAPE"]) else "N/A")
-                v4.metric("Accuracy", f"{round(float(best_row['Accuracy']), 2)}%" if pd.notna(best_row["Accuracy"]) else "N/A")
+                v1.metric("RMSE", safe_metric(best_row.get("RMSE")))
+                v2.metric("MAE", safe_metric(best_row.get("MAE")))
+                v3.metric("MAPE", safe_metric(best_row.get("MAPE"), suffix="%"))
+                v4.metric("Accuracy", safe_metric(best_row.get("Accuracy"), decimals=2, suffix="%"))
             except Exception:
                 st.info("Validation metrics are available in the table above.")
 
