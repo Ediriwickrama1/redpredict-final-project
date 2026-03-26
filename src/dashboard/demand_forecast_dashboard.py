@@ -24,6 +24,22 @@ from demand_forecasting.demand_dashboard_utils import (
 st.title("Demand Forecast Dashboard")
 st.write("Unified forecasting, validation, alerting, recommendation, and explanation interface for NBTS managers.")
 
+
+def safe_metric(value, decimals=3, suffix=""):
+    if value is None:
+        return "N/A"
+    try:
+        if pd.isna(value):
+            return "N/A"
+    except Exception:
+        pass
+
+    try:
+        return f"{round(float(value), decimals)}{suffix}"
+    except Exception:
+        return "N/A"
+
+
 # =========================================================
 # 1. LOAD DATA AND DYNAMIC FILTERS
 # =========================================================
@@ -55,11 +71,14 @@ run_btn = st.sidebar.button("Run Forecast Analysis", type="primary")
 if run_btn:
     with st.spinner("Generating forecast and validation metrics..."):
         try:
-            # existing engine uses blood bank + blood type
             generate_forecast(selected_bank, selected_blood_type)
 
-            # save per-selection validation metrics
-            metrics_df, best_model = run_model_comparison(selected_bank, selected_blood_type, save=True)
+            try:
+                metrics_df, best_model = run_model_comparison(selected_bank, selected_blood_type, save=True)
+            except Exception as metric_error:
+                st.warning(f"Model comparison failed, continuing with forecast output only. Details: {metric_error}")
+                metrics_df = pd.DataFrame()
+                best_model = "ARIMA"
 
             safe_bank = selected_bank.replace("/", "-").replace(" ", "_")
             safe_type = selected_blood_type.replace("+", "pos").replace("-", "neg")
@@ -71,7 +90,13 @@ if run_btn:
 
             forecast_df = pd.read_csv(forecast_path)
 
-            predicted_demand = int(round(forecast_df["Forecast_Units"].mean()))
+            forecast_values = pd.to_numeric(forecast_df["Forecast_Units"], errors="coerce")
+            if forecast_values.notna().sum() == 0:
+                st.error("Forecast contains no valid numeric values.")
+                st.write("Debug forecast data:", forecast_df.head())
+                st.stop()
+
+            predicted_demand = int(round(forecast_values.mean()))
             gap = predicted_demand - int(current_stock)
 
             selected_df = df[
@@ -133,33 +158,39 @@ if run_btn:
                     name="Historical Demand"
                 ))
 
-                # Forecast x-axis continues from the last historical date
                 if len(history_df) > 0:
                     last_date = history_df["Date"].iloc[-1]
-                    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=len(forecast_df), freq="D")
+                    future_dates = pd.date_range(
+                        start=last_date + pd.Timedelta(days=1),
+                        periods=len(forecast_df),
+                        freq="D"
+                    )
                 else:
                     future_dates = list(range(len(forecast_df)))
 
                 fig.add_trace(go.Scatter(
                     x=future_dates,
-                    y=forecast_df["Forecast_Units"],
+                    y=forecast_values,
                     mode="lines+markers",
                     name="Forecast",
                     line=dict(dash="dot")
                 ))
 
                 if "Lower_Bound" in forecast_df.columns and "Upper_Bound" in forecast_df.columns:
-                    if forecast_df["Lower_Bound"].notna().any() and forecast_df["Upper_Bound"].notna().any():
+                    lower_vals = pd.to_numeric(forecast_df["Lower_Bound"], errors="coerce")
+                    upper_vals = pd.to_numeric(forecast_df["Upper_Bound"], errors="coerce")
+
+                    if lower_vals.notna().any() and upper_vals.notna().any():
                         fig.add_trace(go.Scatter(
                             x=future_dates,
-                            y=forecast_df["Upper_Bound"],
+                            y=upper_vals,
                             mode="lines",
                             line=dict(width=0),
                             showlegend=False
                         ))
                         fig.add_trace(go.Scatter(
                             x=future_dates,
-                            y=forecast_df["Lower_Bound"],
+                            y=lower_vals,
                             mode="lines",
                             line=dict(width=0),
                             fill="tonexty",
@@ -174,7 +205,11 @@ if run_btn:
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.line_chart(history_df.set_index("Date")["Actual_Demand"])
+                line_df = pd.DataFrame({
+                    "Date": history_df["Date"],
+                    "Historical Demand": history_df["Actual_Demand"]
+                }).set_index("Date")
+                st.line_chart(line_df)
 
             st.subheader("Forecast Output Table")
             st.dataframe(forecast_df, use_container_width=True)
@@ -183,26 +218,24 @@ if run_btn:
             # 6. MODEL PERFORMANCE VALIDATION
             # =========================================================
             st.subheader("Model Performance Validation")
-            st.dataframe(metrics_df, use_container_width=True)
 
-            try:
-                best_row = metrics_df[metrics_df["Model"] == best_model].iloc[0]
+            if not metrics_df.empty:
+                st.dataframe(metrics_df, use_container_width=True)
 
-                def safe_metric(value, decimals=3, suffix=""):
-                    if value is None or pd.isna(value):
-                        return "N/A"
-                    try:
-                        return f"{round(float(value), decimals)}{suffix}"
-                    except Exception:
-                        return "N/A"
+                valid_rows = metrics_df[metrics_df["RMSE"].notna()].copy()
 
-                v1, v2, v3, v4 = st.columns(4)
-                v1.metric("RMSE", safe_metric(best_row.get("RMSE")))
-                v2.metric("MAE", safe_metric(best_row.get("MAE")))
-                v3.metric("MAPE", safe_metric(best_row.get("MAPE"), suffix="%"))
-                v4.metric("Accuracy", safe_metric(best_row.get("Accuracy"), decimals=2, suffix="%"))
-            except Exception:
-                st.info("Validation metrics are available in the table above.")
+                if not valid_rows.empty:
+                    best_row = valid_rows.sort_values("RMSE").iloc[0]
+
+                    v1, v2, v3, v4 = st.columns(4)
+                    v1.metric("RMSE", safe_metric(best_row.get("RMSE")))
+                    v2.metric("MAE", safe_metric(best_row.get("MAE")))
+                    v3.metric("MAPE", safe_metric(best_row.get("MAPE"), suffix="%"))
+                    v4.metric("Accuracy", safe_metric(best_row.get("Accuracy"), decimals=2, suffix="%"))
+                else:
+                    st.info("No valid numeric model metrics are available for this selection.")
+            else:
+                st.info("Validation metrics are not available for this selection.")
 
             # =========================================================
             # 7. NARRATIVE EXPLANATION

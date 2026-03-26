@@ -17,9 +17,34 @@ OUTPUT_PATH = "outputs/forecast_metrics.csv"
 def normalize_df(df):
     df = df.copy()
     df.columns = [c.strip().lower() for c in df.columns]
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+
     df = df.sort_values(["blood_bank", "blood_type", "date"]).reset_index(drop=True)
     return df
+
+
+def safe_float(value):
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def compute_accuracy_from_mape(mape):
+    mape = safe_float(mape)
+    if mape is None:
+        return None
+    return max(0.0, 100.0 - mape)
 
 
 def compute_arima_metrics(df, blood_bank, blood_type):
@@ -39,28 +64,48 @@ def compute_arima_metrics(df, blood_bank, blood_type):
             "Accuracy": None
         }
 
-    train_size = int(len(series) * 0.8)
-    train = series.iloc[:train_size]
-    test = series.iloc[train_size:]
+    try:
+        train_size = int(len(series) * 0.8)
+        train = series.iloc[:train_size]
+        test = series.iloc[train_size:]
 
-    model = ARIMA(train, order=(5, 1, 0))
-    model_fit = model.fit()
-    forecast = model_fit.forecast(steps=len(test))
+        model = ARIMA(train, order=(5, 1, 0))
+        model_fit = model.fit()
+        forecast = model_fit.forecast(steps=len(test))
 
-    rmse = np.sqrt(mean_squared_error(test, forecast))
-    mae = mean_absolute_error(test, forecast)
+        test = pd.to_numeric(test, errors="coerce")
+        forecast = pd.to_numeric(forecast, errors="coerce")
 
-    test_safe = test.replace(0, np.nan)
-    mape = (np.abs((test - forecast) / test_safe)).mean() * 100
-    accuracy = max(0, 100 - mape) if pd.notna(mape) else None
+        valid_mask = test.notna() & forecast.notna()
+        test = test[valid_mask]
+        forecast = forecast[valid_mask]
 
-    return {
-        "Model": "ARIMA",
-        "RMSE": float(rmse),
-        "MAE": float(mae),
-        "MAPE": float(mape),
-        "Accuracy": float(accuracy)
-    }
+        if len(test) == 0:
+            raise ValueError("ARIMA test/forecast contains no valid numeric pairs.")
+
+        rmse = np.sqrt(mean_squared_error(test, forecast))
+        mae = mean_absolute_error(test, forecast)
+
+        test_safe = test.replace(0, np.nan)
+        mape = (np.abs((test - forecast) / test_safe)).mean() * 100
+
+        return {
+            "Model": "ARIMA",
+            "RMSE": safe_float(rmse),
+            "MAE": safe_float(mae),
+            "MAPE": safe_float(mape),
+            "Accuracy": compute_accuracy_from_mape(mape)
+        }
+
+    except Exception as e:
+        print(f"ARIMA metric generation failed: {e}")
+        return {
+            "Model": "ARIMA",
+            "RMSE": None,
+            "MAE": None,
+            "MAPE": None,
+            "Accuracy": None
+        }
 
 
 def compute_lstm_metrics(raw_df, blood_bank, blood_type):
@@ -78,55 +123,72 @@ def compute_lstm_metrics(raw_df, blood_bank, blood_type):
 
         result = train_lstm(lstm_df)
 
-        # expected patterns:
-        # (model, predictions, actual, metrics_dict)
-        # (model, predictions, actual, rmse_scalar)
-        if len(result) >= 4:
-            _, predictions, actual, metrics_or_rmse = result
+        if not isinstance(result, (tuple, list)) or len(result) < 4:
+            raise ValueError("Unexpected LSTM return format.")
 
-            predictions = np.array(predictions).flatten()
-            actual = np.array(actual).flatten()
+        _, predictions, actual, metrics_or_rmse = result
 
-            if isinstance(metrics_or_rmse, dict):
-                rmse = metrics_or_rmse.get("RMSE")
-                mae = metrics_or_rmse.get("MAE")
-                mape = metrics_or_rmse.get("MAPE")
-            else:
-                rmse = float(metrics_or_rmse)
-                mae = float(mean_absolute_error(actual, predictions))
-                actual_safe = np.where(actual == 0, np.nan, actual)
-                mape = float(np.nanmean(np.abs((actual - predictions) / actual_safe)) * 100)
+        predictions = pd.to_numeric(pd.Series(np.array(predictions).flatten()), errors="coerce")
+        actual = pd.to_numeric(pd.Series(np.array(actual).flatten()), errors="coerce")
 
-            accuracy = max(0, 100 - mape) if pd.notna(mape) else None
+        valid_mask = predictions.notna() & actual.notna()
+        predictions = predictions[valid_mask]
+        actual = actual[valid_mask]
 
-            return {
-                "Model": "LSTM",
-                "RMSE": float(rmse) if rmse is not None else None,
-                "MAE": float(mae) if mae is not None else None,
-                "MAPE": float(mape) if mape is not None else None,
-                "Accuracy": float(accuracy) if accuracy is not None else None
-            }
+        if len(actual) == 0:
+            raise ValueError("LSTM actual/prediction contains no valid numeric pairs.")
+
+        if isinstance(metrics_or_rmse, dict):
+            rmse = safe_float(metrics_or_rmse.get("RMSE"))
+            mae = safe_float(metrics_or_rmse.get("MAE"))
+            mape = safe_float(metrics_or_rmse.get("MAPE"))
+
+            if rmse is None:
+                rmse = np.sqrt(mean_squared_error(actual, predictions))
+            if mae is None:
+                mae = mean_absolute_error(actual, predictions)
+            if mape is None:
+                actual_safe = actual.replace(0, np.nan)
+                mape = (np.abs((actual - predictions) / actual_safe)).mean() * 100
+        else:
+            rmse = safe_float(metrics_or_rmse)
+            if rmse is None:
+                rmse = np.sqrt(mean_squared_error(actual, predictions))
+            mae = mean_absolute_error(actual, predictions)
+            actual_safe = actual.replace(0, np.nan)
+            mape = (np.abs((actual - predictions) / actual_safe)).mean() * 100
+
+        return {
+            "Model": "LSTM",
+            "RMSE": safe_float(rmse),
+            "MAE": safe_float(mae),
+            "MAPE": safe_float(mape),
+            "Accuracy": compute_accuracy_from_mape(mape)
+        }
 
     except Exception as e:
         print(f"LSTM metric generation failed: {e}")
-
-    return {
-        "Model": "LSTM",
-        "RMSE": None,
-        "MAE": None,
-        "MAPE": None,
-        "Accuracy": None
-    }
+        return {
+            "Model": "LSTM",
+            "RMSE": None,
+            "MAE": None,
+            "MAPE": None,
+            "Accuracy": None
+        }
 
 
 def select_best_model(arima_metrics, lstm_metrics):
-    if arima_metrics["RMSE"] is None and lstm_metrics["RMSE"] is None:
-        return "Unavailable"
-    if arima_metrics["RMSE"] is None:
-        return "LSTM"
-    if lstm_metrics["RMSE"] is None:
+    arima_rmse = safe_float(arima_metrics.get("RMSE"))
+    lstm_rmse = safe_float(lstm_metrics.get("RMSE"))
+
+    if arima_rmse is None and lstm_rmse is None:
         return "ARIMA"
-    return "LSTM" if lstm_metrics["RMSE"] < arima_metrics["RMSE"] else "ARIMA"
+    if arima_rmse is None:
+        return "LSTM"
+    if lstm_rmse is None:
+        return "ARIMA"
+
+    return "LSTM" if lstm_rmse < arima_rmse else "ARIMA"
 
 
 def run_model_comparison(blood_bank, blood_type, save=True):
