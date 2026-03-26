@@ -4,6 +4,16 @@ import os
 
 st.title("Model Performance & System Impact")
 
+
+def safe_metric(value, decimals=3, suffix=""):
+    if value is None or pd.isna(value):
+        return "N/A"
+    try:
+        return f"{round(float(value), decimals)}{suffix}"
+    except Exception:
+        return "N/A"
+
+
 st.header("Problem Overview")
 
 st.write("""
@@ -21,17 +31,27 @@ st.header("Demand Forecasting Performance")
 if os.path.exists("outputs/forecast_metrics.csv"):
     forecast_df = pd.read_csv("outputs/forecast_metrics.csv")
 
-    lstm_row  = forecast_df[forecast_df["Model"] == "LSTM"].iloc[0]
-    arima_row = forecast_df[forecast_df["Model"] == "ARIMA"].iloc[0]
+    try:
+        lstm_rows  = forecast_df[forecast_df["Model"] == "LSTM"]
+        arima_rows = forecast_df[forecast_df["Model"] == "ARIMA"]
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("LSTM RMSE",  round(lstm_row["RMSE"], 3))
-    col2.metric("LSTM MAE",   round(lstm_row["MAE"],  3))
-    col3.metric("LSTM MAPE",  round(lstm_row["MAPE"], 3))
+        if lstm_rows.empty or arima_rows.empty:
+            st.warning("LSTM or ARIMA row missing from forecast_metrics.csv.")
+        else:
+            lstm_row  = lstm_rows.iloc[0]
+            arima_row = arima_rows.iloc[0]
 
-    col1.metric("ARIMA RMSE", round(arima_row["RMSE"], 3))
-    col2.metric("ARIMA MAE",  round(arima_row["MAE"],  3))
-    col3.metric("ARIMA MAPE", round(arima_row["MAPE"], 3))
+            col1, col2, col3 = st.columns(3)
+            col1.metric("LSTM RMSE",  safe_metric(lstm_row.get("RMSE")))
+            col2.metric("LSTM MAE",   safe_metric(lstm_row.get("MAE")))
+            col3.metric("LSTM MAPE",  safe_metric(lstm_row.get("MAPE")))
+
+            col1.metric("ARIMA RMSE", safe_metric(arima_row.get("RMSE")))
+            col2.metric("ARIMA MAE",  safe_metric(arima_row.get("MAE")))
+            col3.metric("ARIMA MAPE", safe_metric(arima_row.get("MAPE")))
+
+    except Exception as e:
+        st.warning(f"Could not display forecasting performance metrics: {e}")
 
 else:
     # fallback to hardcoded values if forecast_metrics.csv not yet generated
@@ -48,7 +68,11 @@ if os.path.exists("outputs/forecast_metrics.csv"):
     st.dataframe(forecast_df)
 
     st.subheader("RMSE, MAE, and MAPE Comparison")
-    st.bar_chart(forecast_df.set_index("Model")[["RMSE", "MAE", "MAPE"]])
+    try:
+        chart_df = forecast_df.set_index("Model")[["RMSE", "MAE", "MAPE"]].apply(pd.to_numeric, errors="coerce")
+        st.bar_chart(chart_df)
+    except Exception as e:
+        st.warning(f"Could not render forecast comparison chart: {e}")
 
 else:
     st.warning("Run model_selector.py to generate forecast metrics.")
@@ -57,16 +81,20 @@ else:
 st.header("Donor Model Evaluation Metrics")
 
 if os.path.exists("outputs/donor_metrics.csv"):
-    metrics_df = pd.read_csv("outputs/donor_metrics.csv")
+    try:
+        metrics_df = pd.read_csv("outputs/donor_metrics.csv")
 
-    col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(3)
 
-    col1.metric("Accuracy",  round(metrics_df.loc[0, "Value"], 3))
-    col2.metric("Precision", round(metrics_df.loc[1, "Value"], 3))
-    col3.metric("Recall",    round(metrics_df.loc[2, "Value"], 3))
+        col1.metric("Accuracy",  safe_metric(metrics_df.loc[0, "Value"]))
+        col2.metric("Precision", safe_metric(metrics_df.loc[1, "Value"]))
+        col3.metric("Recall",    safe_metric(metrics_df.loc[2, "Value"]))
 
-    col1.metric("F1 Score",  round(metrics_df.loc[3, "Value"], 3))
-    col2.metric("AUC",       round(metrics_df.loc[4, "Value"], 3))
+        col1.metric("F1 Score",  safe_metric(metrics_df.loc[3, "Value"]))
+        col2.metric("AUC",       safe_metric(metrics_df.loc[4, "Value"]))
+
+    except Exception as e:
+        st.warning(f"Could not display donor metrics: {e}")
 
 else:
     st.warning("Run donor_model.py to generate metrics.")
@@ -91,11 +119,12 @@ else:
 st.header("Feature Importance Ranking")
 
 if os.path.exists("outputs/feature_importance.csv"):
-    importance_df = pd.read_csv("outputs/feature_importance.csv")
-
-    st.dataframe(importance_df)
-
-    st.bar_chart(importance_df.set_index("Feature"))
+    try:
+        importance_df = pd.read_csv("outputs/feature_importance.csv")
+        st.dataframe(importance_df)
+        st.bar_chart(importance_df.set_index("Feature"))
+    except Exception as e:
+        st.warning(f"Could not display feature importance: {e}")
 
 else:
     st.warning("Feature importance not found.")
@@ -119,13 +148,13 @@ if os.path.exists("outputs/xai/demand_feature_importance.png"):
 st.header("System Improvement (Before vs After)")
 
 if os.path.exists("outputs/system_comparison.csv"):
-    df = pd.read_csv("outputs/system_comparison.csv")
-
-    st.dataframe(df)
-
-    st.bar_chart(df.set_index("Scenario"))
-
-    st.success("The AI system significantly reduces forecasting error and improves decision-making.")
+    try:
+        df = pd.read_csv("outputs/system_comparison.csv")
+        st.dataframe(df)
+        st.bar_chart(df.set_index("Scenario"))
+        st.success("The AI system significantly reduces forecasting error and improves decision-making.")
+    except Exception as e:
+        st.warning(f"Could not display system comparison: {e}")
 
 else:
     st.warning("Run system_comparison.py first.")
@@ -148,15 +177,17 @@ st.header("Run Model Evaluation")
 if st.button("Recalculate Model Metrics"):
     os.system("python src/donor_management/donor_model.py")
     st.success("Model re-evaluated successfully.")
-    
+
+# --- Shortage Alerts ---
 st.header("Shortage Alerts")
 
 if os.path.exists("outputs/shortage_alerts.csv"):
-    alerts_df = pd.read_csv("outputs/shortage_alerts.csv")
-
-    st.dataframe(alerts_df)
-
-    st.warning("These alerts indicate potential blood shortages requiring immediate attention.")
+    try:
+        alerts_df = pd.read_csv("outputs/shortage_alerts.csv")
+        st.dataframe(alerts_df)
+        st.warning("These alerts indicate potential blood shortages requiring immediate attention.")
+    except Exception as e:
+        st.warning(f"Could not display shortage alerts: {e}")
 
 else:
     st.info("Run shortage_alert_engine.py to generate alerts.")
