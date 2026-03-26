@@ -3,18 +3,24 @@ import mysql.connector
 import streamlit as st
 
 
-def _get_secret(name: str, default: str | None = None):
+def get_secret(key, default=None):
     try:
-        return st.secrets[name]
+        return st.secrets[key]
     except Exception:
-        return os.getenv(name, default)
+        return os.getenv(key, default)
 
 
 def get_connection():
+    host = get_secret("DB_HOST", "localhost")
+    port = int(get_secret("DB_PORT", "3306"))
+    user = get_secret("DB_USER", "root")
+    password = get_secret("DB_PASSWORD", "")
+    database = get_secret("DB_NAME", "blood_donor_system")
+
     return mysql.connector.connect(
-        host=_get_secret("DB_HOST"),
-        port=int(_get_secret("DB_PORT", "3306")),
-        user=_get_secret("DB_USER"),
-        password=_get_secret("DB_PASSWORD"),
-        database=_get_secret("DB_NAME"),
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        database=database,
     )
